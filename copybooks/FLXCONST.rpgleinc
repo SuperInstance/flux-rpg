@@ -1,0 +1,18 @@
+///=====================================================================
+/// FLXCONST.rpgleinc — Constraint table definition
+/// Shared by all FLX RPG programs.
+/// 8 constraints with LO/HI bounds, severity, and name.
+///=====================================================================
+
+Dcl-Ds ConstraintTable Qualified;
+  Constraint   Dim(8);
+    cLo         Like(WorkVal);
+    cHi         Like(WorkVal);
+    cSeverity   Zoned(1:0);
+    cName       Char(16);
+    cViolated   Ind;
+End-Ds;
+
+Dcl-S ConstraintCount Int(5) Inz(0);
+Dcl-S Int8Min         Like(WorkVal) Inz(-127);
+Dcl-S Int8Max         Like(WorkVal) Inz(127);

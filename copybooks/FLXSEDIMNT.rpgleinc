@@ -1,0 +1,22 @@
+///=====================================================================
+/// FLXSEDIMNT.rpgleinc — Sediment layer definitions
+/// Accumulated correctness corrections, stack of 50 layers.
+///=====================================================================
+
+Dcl-Ds SedimentLayer Qualified Template;
+  constraintIdx  Int(5)     Inz(0);
+  oldLo          Like(WorkVal) Inz(0);
+  oldHi          Like(WorkVal) Inz(0);
+  newLo          Like(WorkVal) Inz(0);
+  newHi          Like(WorkVal) Inz(0);
+  overridePass   Ind        Inz(*Off);
+  reason         Char(32)   Inz('');
+  timestamp      Zoned(8:0) Inz(0);
+End-Ds;
+
+Dcl-Ds SedimentStack Qualified;
+  layer         LikeDS(SedimentLayer) Dim(50);
+End-Ds;
+
+Dcl-S SedimentCount    Int(5) Inz(0);
+Dcl-S SedimentMax      Int(5) Inz(50);

@@ -1,0 +1,11 @@
+///=====================================================================
+/// FLXRESULT.rpgleinc — Result record definition
+/// Shared by all FLX RPG programs.
+///=====================================================================
+
+Dcl-Ds ResultRec Qualified;
+  errMask      Zoned(5:0) Inz(0);
+  violatedCnt  Int(5)     Inz(0);
+  severity     Int(5)     Inz(0);
+  passed       Ind        Inz(*On);
+End-Ds;

@@ -1,54 +1,81 @@
-# flux-rpg — RPG IV Constraint Engine
+# Flux RPG — What the Cycle Model Teaches About Constraint Processing
 
-**RPG IV (RPGLE) free-format implementation of the constraint engine.**
-Runs on IBM i (AS/400) — the machines that process most of the world's
-banking transactions, insurance claims, and payroll.
+RPG IV (Report Program Generator, 1959) runs on IBM i (AS/400) — the machines that process most of the world's banking transactions, insurance claims, and payroll. This repo implements the Flux constraint engine in RPG IV free-format.
 
-## Why RPG?
+## How to Read RPG
 
-RPG's cycle model forces a specific architecture. That forced architecture
-IS the frozen hot path:
+RPG (especially RPG IV / RPGLE free-format) looks unusual but follows a clear logic: read → process → write.
 
-| RPG Feature | Constraint Engine Mapping |
-|-------------|--------------------------|
-| **Indicators** (*IN01-*IN99) | Error mask bits — bitmask constraint checking since 1959 |
-| **The RPG Cycle** (read → process → write) | `read input → check constraints → write result` |
-| **Control breaks** (L1-L9) | Natural batching by constraint group |
-| **%BITOR / %BITAND** | Coalescence of independent block results |
-| **Packed decimal** | Exact arithmetic, zero floating-point drift |
-| **LOOKUP** | Sediment layer matching |
-| **Subprocedures** | Modular engine components |
+```rpg
+// This is a comment
+// Free-format RPG IV (ILE RPG)
 
-## What RPG's Cycle Model Teaches About Constraint Processing
+// Standalone variables — packed decimal for exact arithmetic
+Dcl-S X Packed(7:0);              // 7-digit packed decimal, 0 decimals
+Dcl-S Result Char(32);
 
-The RPG cycle is not a limitation. It's a discovery.
+// Data structure — like a struct/record
+Dcl-Ds ConstraintRec Qualified;
+  LO Packed(7:0);                  // Lower bound
+  HI Packed(7:0);                  // Upper bound
+  Severity Packed(3:0);            // Violation weight
+  Violated Char(1);                // '1' or '0'
+End-Ds;
 
-**1. The cycle IS the hot path.** Every business program in the world
-follows: read input → validate → process → write output. RPG made this
-explicit in 1959. Constraint engines do the same thing: read sensor →
-check bounds → compute severity → emit result.
+// Array of structures
+Dcl-Ds Constraints Qualified Dim(8);
+  LO Packed(7:0);
+  HI Packed(7:0);
+  Severity Packed(3:0);
+  Violated Char(1);
+End-Ds;
 
-**2. Indicators ARE bitmasks.** Before C had `|` and `&`, RPG had *IN01
-through *IN99 — 99 boolean flags that map directly to error mask bits.
-The constraint engine's error mask is built by setting indicators and
-reading them back. This isn't retro computing. It's frozen architecture.
+// Indicators — 99 boolean flags (*IN01 through *IN99)
+// These ARE the error mask bits
+*IN01 = *ON;                       // Set indicator 1 (constraint 1 violated)
+*IN02 = *OFF;                      // Clear indicator 2
 
-**3. Control breaks are natural batching.** L1 through L9 let you
-define group boundaries. In constraint processing, this is fracturing —
-splitting into independent blocks. RPG was doing block decomposition
-before graph theory made it formal.
+// Bitwise operations
+Result_Mask = %BitOr(Mask1: Mask2);  // OR two error masks together
 
-**4. Packed decimal eliminates float drift.** IBM's packed BCD gives
-exact arithmetic for financial and sensor values. No IEEE 754 surprises.
-The constraint engine uses packed(7,0) — exact integer bounds checking
-with zero rounding error.
+// Conditional execution
+If Sensor_Val < Constraints(I).LO;
+  Constraints(I).Violated = '1';
+  Select I;
+    When-is 1;  *IN01 = *ON;
+    When-is 2;  *IN02 = *ON;
+    // ... one per constraint (RPG doesn't index indicators dynamically)
+  EndSl;
+EndIf;
 
-**5. Fixed-format forces discipline.** RPG's column constraints (specs
-in specific columns, data in specific positions) forced programmers to
-think about data layout before code. The constraint engine's data
-structures (ConstraintRec, InputRec, ResultRec) inherit this discipline.
+// Subprocedure — like a function
+Dcl-Proc CheckConstraints;
+  Dcl-Pi *N;                       // No return value
+    Idx Int(5);                     // Parameter
+  End-Pi;
+  // ... logic ...
+End-Proc;
+```
 
-## Architecture
+Key ideas:
+- **Indicators** (`*IN01`–`*IN99`) — boolean flags that map directly to error mask bits. RPG has had bitmasks since 1959.
+- **Packed decimal** — exact arithmetic, no floating-point drift. `Packed(7,0)` is a 7-digit integer stored in BCD.
+- **The RPG cycle** — implicit read-process-write loop. The language IS a pipeline.
+- **Control breaks** (L1–L9) — group boundaries. Natural batching by constraint group.
+- **%BitOr / %BitAnd** — bitwise operations for coalescing independent block results.
+- **No dynamic indicator indexing** — you use `Select/When` to map constraint indices to indicators.
+
+## How the Constraint Engine Maps to RPG
+
+| Constraint Engine Concept | RPG Mechanism |
+|---------------------------|---------------|
+| Error mask (8 bits) | Indicators *IN01–*IN08 — bitmask constraint checking since 1959 |
+| Read input → check → write result | The RPG cycle (read → process → write) |
+| Fracture into independent blocks | Control breaks (L1–L9) — natural batching |
+| Coalescence (bitwise OR) | `%BitOr(Mask1: Mask2)` |
+| Exact arithmetic | Packed decimal — zero floating-point drift |
+| Sediment layer matching | `LOOKUP` operation |
+| Engine components | Subprocedures (`Dcl-Proc`) |
 
 ```
 ┌──────────────────────────────────────────────────┐
@@ -71,15 +98,17 @@ structures (ConstraintRec, InputRec, ResultRec) inherit this discipline.
 └──────────────────────────────────────────────────┘
 ```
 
-## THEOREM (Coalescence Correctness)
+## What RPG Teaches Us
 
-If fracture correctly identifies connected components of the
-constraint-dimension dependency graph, coalescence via bitwise OR
-preserves zero false negatives.
+**The cycle IS the hot path.** Every constraint engine reads input → validates → processes → writes output. RPG made this explicit in 1959. The language doesn't just support this pattern — it IS this pattern.
 
-**Proof:** Each constraint violation is a Boolean event. For independent
-blocks, the event spaces are disjoint (no shared dimensions). The union
-of all violations = OR of block error masks. QED.
+Three specific lessons:
+
+1. **Indicators ARE bitmasks.** Before C had `|` and `&`, RPG had *IN01 through *IN99 — 99 boolean flags that map directly to error mask bits. The constraint engine's error mask is built by setting indicators and reading them back. This isn't retro computing — it's frozen architecture.
+
+2. **Control breaks are natural batching.** L1 through L9 define group boundaries in sorted data. In constraint processing, this is fracturing — splitting into independent blocks by shared dimensions. RPG was doing block decomposition before graph theory formalized it.
+
+3. **Packed decimal eliminates float drift.** IBM's packed BCD gives exact arithmetic for financial and sensor values. No IEEE 754 surprises. The constraint engine uses `Packed(7,0)` — exact integer bounds checking with zero rounding error.
 
 ## Files
 
@@ -91,25 +120,17 @@ of all violations = OR of block error masks. QED.
 | `FLXMAIN.rpgle` | ~350 | Full pipeline with adversarial self-test |
 | `copybooks/` | 3 files | Shared DS definitions |
 
-## Key RPG IV Features Used
+## Build & Run
 
-- **Dcl-F** — File declarations (input/output)
-- **Dcl-S** — Standalone variables (packed decimal for exact arithmetic)
-- **Dcl-DS** — Qualified data structures with DIM arrays
-- **Indicators** (*IN01-*IN08) — Bitmask violation flags
-- **%BitOr** — Coalescence of block error masks
-- **%Char** — Type conversion for display
-- **Subprocedures** (Dcl-Proc/Dcl-PI) — Modular engine components
-- **Select/When** — Indicator mapping (RPG doesn't index indicators dynamically)
-- **For/Dou** — Iterative BFS (RPG doesn't recurse)
+This code is correct RPG IV free-format. It compiles on IBM i 7.2+ with the ILE RPG compiler. It cannot compile on Linux — that's the point. RPG runs where the money is. Banks don't run Python.
 
-## Portability
+## Where to Go Next
 
-This code is correct RPG IV free-format. It compiles on IBM i 7.2+
-with the ILE RPG compiler. It cannot compile on Linux — that's the
-point. RPG runs where the money is. Banks don't run Python.
+- **flux-cobol** — COBOL's OCCURS tables = fixed arrays. Sections = pipeline stages. COBOL computes, MUMPS remembers.
+- **flux-pli** — PL/I's native `BIT(8)` type makes the error mask a language primitive, not a simulation.
+- **flux-mumps** — Where sediment actually lives. MUMPS globals persist across sessions.
+- **flux-docs** — Full documentation: error masks, fracture-coalesce, sediment, thermodynamic analogy.
 
-The constraint engine is the same whether it's Python, COBOL, or RPG.
-The math doesn't change. The architecture adapts to the platform.
-RPG adapts by being what it is: a cycle machine with indicators and
-packed decimal. That's not a constraint. That's a superpower.
+## Author
+
+Forgemaster ⚒️ — Constraint Theory Ecosystem, 2026-05-19

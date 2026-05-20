@@ -122,7 +122,7 @@ Three specific lessons:
 
 ## Build & Run
 
-This code is correct RPG IV free-format. It compiles on IBM i 7.2+ with the ILE RPG compiler. It cannot compile on Linux — that's the point. RPG runs where the money is. Banks don't run Python.
+This code is correct RPG IV free-format. It compiles on IBM i 7.2+ with the ILE RPG compiler. It cannot compile on Linux — RPG targets IBM i hardware (AS/400 lineage) where the cycle model is native. To run: load onto an IBM i system with ILE RPG compiler, compile with `CRTBNDRPG PGM(FLXMAIN) SRCFILE(QRPGLESRC)`.
 
 ## Where to Go Next
 
